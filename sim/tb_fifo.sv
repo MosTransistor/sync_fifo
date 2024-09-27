@@ -18,8 +18,8 @@ module tb_fifo();
     logic           t_full;
     logic           t_empty;
     
-    int  ref_data[$];
-    int  imp_data[$];
+    logic [31:0]  ref_data[$];
+    logic [31:0]  imp_data[$];
     logic t_rd_s;
     integer fh, seed;
 
