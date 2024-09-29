@@ -12,18 +12,19 @@ module sync_fifo_spram #(
     input    wire  [WIDTH-1:0]          din,
     input    wire                       rd,
     output   wire  [WIDTH-1:0]          dout,
-    output   wire  [$clog2(DEPTH)-1:0]  used_cnt,
+    output   wire  [$clog2(DEPTH):0]    used_cnt,
     output   wire                       full,
     output   wire                       empty
 );
 
 localparam AW = $clog2(DEPTH);
-localparam DEPTH_HALF = (DEPTH % 2 == 1) ? DEPTH / 2 + 1 : DEPTH / 2;
+localparam ACTUAL_DEPTH = (DEPTH % 2 == 1) ? DEPTH + 1 : DEPTH;
+localparam DEPTH_HALF = ACTUAL_DEPTH / 2;
 
-wire  [AW-1:0]     used_cnt_c; 
-reg   [AW-1:0]     used_cnt_s; 
+wire  [AW:0]       used_cnt_c; 
+reg   [AW:0]       used_cnt_s; 
 
-wire  [AW-1:0]     waddr_c;
+reg   [AW-1:0]     waddr_c;
 reg   [AW-1:0]     waddr_r;
 wire  [AW-1:0]     raddr_c;
 reg   [AW-1:0]     raddr_r;
@@ -60,25 +61,33 @@ assign latch2ram = latch_valid_s;
 assign in2ram = wr & (~in2latch);
 
 // FIFO pointer 
-assign waddr_c = (latch2ram || in2ram) ? waddr_r + latch2ram + in2ram : waddr_r;
-assign raddr_c = rd ? raddr_r + 1'b1 : raddr_r;
+always @(*) begin
+    case({latch2ram, in2ram})
+        2'b00 : waddr_c = waddr_r;
+        2'b01:  waddr_c = (waddr_r == ACTUAL_DEPTH-1) ? {AW{1'b0}} : waddr_r + 1;
+        2'b10:  waddr_c = (waddr_r == ACTUAL_DEPTH-1) ? {AW{1'b0}} : waddr_r + 1;
+        2'b11:  waddr_c = (waddr_r == ACTUAL_DEPTH-1) ? {{(AW-1){1'b0}}, 1'b1} : 
+                          (waddr_r == ACTUAL_DEPTH-2) ? {AW{1'b0}} : waddr_r + 2;
+    endcase
+end
+assign raddr_c = rd ? ((raddr_r == ACTUAL_DEPTH-1) ? {AW{1'b0}} : raddr_r + 1'b1) : raddr_r;
 
 // RAM interface
 assign even_ram_cs = (rd & (~raddr_r[0])) | even_ram_wr;
 assign even_ram_wr = (latch2ram & (~waddr_r[0])) | (in2ram & ((~waddr_r[0]) | latch2ram));
 assign even_ram_addr = (!even_ram_wr) ? raddr_r[AW-1:1] :
-                       (latch2ram && in2ram && waddr_r[0]) ? waddr_r + 1'b1 >> 1 : waddr_r[AW-1:1];
+                       (latch2ram && in2ram && waddr_r[0]) ? ((waddr_r == ACTUAL_DEPTH-1) ? {(AW-2){1'b0}} : waddr_r + 1 >> 1) : waddr_r[AW-1:1];
 assign even_ram_wdata = (latch2ram && (!waddr_r[0])) ? data_latch_s : din;
 
 assign odd_ram_cs = (rd & raddr_r[0]) | odd_ram_wr;
 assign odd_ram_wr = (latch2ram & waddr_r[0]) | (in2ram & (waddr_r[0] | latch2ram));
 assign odd_ram_addr = (!odd_ram_wr) ? raddr_r[AW-1:1] : 
-                      (latch2ram && in2ram && (!waddr_r[0])) ? waddr_r + 1'b1 >> 1 : waddr_r[AW-1:1];
+                      (latch2ram && in2ram && (!waddr_r[0])) ? ((waddr_r == ACTUAL_DEPTH-1) ? {(AW-2){1'b0}} :  waddr_r + 1 >> 1) : waddr_r[AW-1:1];
 assign odd_ram_wdata = (latch2ram && waddr_r[0]) ? data_latch_s : din;
 
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        used_cnt_s    <= #`RD {AW{1'b0}};
+        used_cnt_s    <= #`RD {(AW+1){1'b0}};
         waddr_r       <= #`RD {AW{1'b0}};
         raddr_r       <= #`RD {AW{1'b0}};
         latch_valid_s <= #`RD 1'b0;
