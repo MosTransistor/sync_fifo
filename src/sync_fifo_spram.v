@@ -99,30 +99,30 @@ assign full  = (used_cnt_s == DEPTH);
 assign empty = (used_cnt_s == 0);
 assign used_cnt = used_cnt_s;
 
-single_ram_model #(
+sp_ram_model #(
     .WIDTH(WIDTH),
     .DEPTH(DEPTH_HALF)
 ) 
 odd_ram(
     .clk(clk),
-    .cs(odd_ram_cs),
-    .wr(odd_ram_wr),
+    .en(odd_ram_cs),
+    .wen(odd_ram_wr),
     .addr(odd_ram_addr),
-    .wdata(odd_ram_wdata),
-    .rdata(odd_ram_rdata)
+    .din(odd_ram_wdata),
+    .dout(odd_ram_rdata)
 );
 
-single_ram_model #(
+sp_ram_model #(
     .WIDTH(WIDTH),
     .DEPTH(DEPTH_HALF)
 ) 
 even_ram(
     .clk(clk),
-    .cs(even_ram_cs),
-    .wr(even_ram_wr),
+    .en(even_ram_cs),
+    .wen(even_ram_wr),
     .addr(even_ram_addr),
-    .wdata(even_ram_wdata),
-    .rdata(even_ram_rdata)
+    .din(even_ram_wdata),
+    .dout(even_ram_rdata)
 );
 
 endmodule
